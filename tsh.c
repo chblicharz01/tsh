@@ -16,56 +16,27 @@ int run()
 takes parameters int exec_type and a character string 
 forks the process, and then uses a formatted string of arguments to call a command
 */
-int run(int exec_type, char* input_string){
-    printf("Entered command: %s", input_string);
-    
-    //build argument list
-    char* string_copy = input_string;
-    char* command = strtok(string_copy, " ");
-    char* argument = strtok(NULL, " ");
-    int length = 0;
+int run(int exec_type, char* input_string){    
+    int list_size = 100;
     int index = 0;
-    while(argument!=NULL)
-    {
-        length++;
-        argument = strtok(NULL, " ");
-    }
 
-    printf("Argument list length: %d", length);
-    char* argument_list[length];
-    command = strtok(input_string, " ");
-    argument = strtok(NULL, " ");
-    while(argument!= NULL)
+    char** argument_list = malloc(list_size * sizeof(char*));
+    char* argument;
+
+    argument = strtok(input_string, " ");
+    while (argument != NULL)
     {
         argument_list[index] = argument;
         index++;
+        if (index >= list_size)
+        {
+            list_size+= 100;
+            argument_list = realloc(argument_list, list_size * sizeof(char*));
+        }
+
         argument = strtok(NULL, " ");
     }
-
-    for(int i = 0; i < length; i++)
-    {
-        printf("\nElement %d: %s", i, argument_list[i]);
-    }
-    
-    
-    /*
-    char* argument_list[100];
-    int index = 0;
-    char* command = strtok(input_string, " ");
-    char* argument = strtok(NULL, " ");
-    while (argument!= NULL && index != 10)
-    {
-        argument_list[index] = argument;
-        index++;
-        argument= strtok(NULL, " ");
-    }
-    for (int i = 0; i < 3; i++)
-    {
-        printf("\nElement %d: %s", i+1, argument_list[i]);
-    }
-    */
-
-
+    argument_list[index] = NULL;
     //fork the process
     pid_t pid;
     pid = fork();
@@ -78,14 +49,20 @@ int run(int exec_type, char* input_string){
     
     //child process that runs command
     else if (pid ==0){
+        
+        if(strcmp(argument_list[0], "exit")==0)
+        {
+            exit(0);
+        }
+        
         //use execlp
         if(exec_type == 0)
         {
-            
+            abort();
         }
         //use execvp
         else{
-
+            abort();
         }
     }
     else {
@@ -110,9 +87,13 @@ int main(int argc, char* argv[]){
             exec_type = 1;
             printf("**Based on your choice, execvp() will be used**");
         }
-        else {
+        else if (strcmp(argv[1],"-execlp") ==0){
             printf("**Based on your choice, execlp() will be used**");
         }
+        else {
+            printf("Invalid exec type. execlp will be used by default.");
+        }
+
     }
     else {
         printf("**By default, execlp() will be used**");
@@ -122,16 +103,16 @@ int main(int argc, char* argv[]){
     //input setup
     char* input_string = NULL;
     size_t size = 0;
-    ssize_t raw_chars;
+    ssize_t retval;
     
     int flag = 0;
     do{
         printf("\ntsh >\t");
-        raw_chars = getline(&input_string, &size, stdin);
+        retval = getline(&input_string, &size, stdin);
+        input_string[strcspn(input_string, "\r\n")] = 0;
         flag = run(exec_type, input_string);
-        printf("The return code: %d",flag);
     } while (!flag);
 
-    printf("\n** Hello world from the tsh! **\n");
+    printf("\n** Exiting tsh  **\n");
     return 0;
 }
