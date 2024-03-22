@@ -22,7 +22,7 @@ void history()
 takes no parameters
 prints the history of previously ran commands
 */
-void history()
+void history(int n)
 {
     for (int i = 0; i < history_index; i++) {
         printf("%d: %s\n", (i+1),command_history[i]);
@@ -34,33 +34,7 @@ int run()
 takes parameters int exec_type and a character string 
 forks the process, and then uses a formatted string of arguments to call a command
 */
-int run(int exec_type, char* input_string){
-    //setup the initial size and index of the argument list
-    int list_size = 100;
-    int index = 0;
-
-    //allocate resources to the argument list and the command
-    char** argument_list = malloc(list_size * sizeof(char*));
-    char* command;
-    char* argument;
-
-    //parse the input string into a command and argument list
-    command = strtok(input_string, " ");
-    argument = strtok(NULL, " ");
-    while (argument != NULL)
-    {
-        argument_list[index] = argument;
-        index++;
-        if (index >= list_size)
-        {
-            list_size+= 100;
-            argument_list = realloc(argument_list, list_size * sizeof(char*));
-        }
-
-        argument = strtok(NULL, " ");
-    }
-    //last element needs to be null
-    argument_list[index] = NULL;
+int run(char* command, char** argument_list, int exec_type){
 
     //fork the process
     pid_t pid;
@@ -74,20 +48,10 @@ int run(int exec_type, char* input_string){
             perror("Error in parent process.");
             exit(0);
         }
-        
-
     }
 
     //child process that runs command
     else if (pid ==0){
-        //exit if the command is exit
-        if(strcmp(command, "exit")==0){
-            return 1;
-        }
-        if (strcmp(command, "history")==0)
-            {
-                history();
-            }
         //use execlp
         if(exec_type == 0){
             execlp(command, argument_list[0], argument_list[1], argument_list[2], argument_list[3], argument_list[4], NULL);
@@ -95,7 +59,6 @@ int run(int exec_type, char* input_string){
             abort();
         }
         //use execvp
-
         else{
             execvp(command, argument_list);
             perror("Error executing command");
@@ -142,24 +105,79 @@ int main(int argc, char* argv[]){
     ssize_t retval;
     
     int flag = 0;
-    do{
+    while(1){
         printf("\ntsh >\t");
         retval = getline(&input_string, &size, stdin);
         input_string[strcspn(input_string, "\r\n")] = 0;
-        flag = run(exec_type, input_string);
+        
+        //initial list size and index
+        int list_size = 4; //command + max of 4 arguments (if using execlp)
+        int index = 0;
+        
+        //allocate resources to the argument list and the command
+        char** argument_list = malloc(list_size * sizeof(char*));
+        char* command;
+        char* argument;
+
+        //parse the input string into a command and argument list
+        command = strtok(input_string, " ");
+        argument = strtok(NULL, " ");
+        while (argument != NULL)
+        {
+            argument_list[index] = argument;
+            index++;
+            //alert for too many errors if the type is 
+            if (index>=list_size)
+            {
+                if(exec_type == 0)
+                {
+                    printf("Error: too many arguments for execlp");
+                }
+                else{
+                    list_size+= 10;
+                    argument_list = realloc(argument_list, list_size * sizeof(char*));
+                }
+            }
+            argument = strtok(NULL, " ");
+        }
+        //last element needs to be null
+        argument_list[index] = NULL;
+
+        //check for built in commands
+        if (strcmp(command, "exit") ==0)
+        {
+            printf("\n** Exiting tsh  **\n");
+            exit(0);
+        }
+        else if (strcmp(command, "history")==0)
+        {
+            history(5);
+        }
+        else if (strcmp(command, "path")==0)
+        {
+            //path functionality here
+        }
+        else if (strcmp(command, "cd")==0)
+        {
+            //cd functionality here
+        }
+        else{
+            flag = run(command, argument_list, exec_type);
+        }
+
+        //add the command to history
         if (history_index < MAX_HISTORY_SIZE) {
             strncpy(command_history[history_index], input_string, COMMAND_LENGTH - 1);
             command_history[history_index][COMMAND_LENGTH - 1] = '\0'; // Ensure null-termination
             history_index++;
         } 
+        //history array is already full
         else {
             history_index = 0;
             strncpy(command_history[history_index], input_string, COMMAND_LENGTH - 1);
             command_history[history_index][COMMAND_LENGTH - 1] = '\0'; // Ensure null-termination
             history_index++;
         }
-    } while (!flag);
-
-    printf("\n** Exiting tsh  **\n");
+    }
     return 0;
 }
